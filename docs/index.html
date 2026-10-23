@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPU Work Queue Lab</title>
+  <style>
+    :root { color-scheme: light; --ink:#17202a; --muted:#5d6874; --line:#d8dee5; --accent:#76b900; --panel:#f5f7f9; }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,-apple-system,sans-serif; color:var(--ink); background:white; }
+    main { max-width:960px; margin:0 auto; padding:48px 24px 64px; } h1 { margin:0 0 8px; font-size:clamp(2rem,5vw,3.5rem); letter-spacing:-.03em; } h2 { margin-top:40px; font-size:1.35rem; }
+    .lede { max-width:720px; color:var(--muted); font-size:1.08rem; } .tag { display:inline-block; color:#345500; background:#edf7df; border:1px solid #cfe7a9; padding:3px 9px; border-radius:999px; font-size:.8rem; font-weight:700; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:24px 0; } .metric, .panel { border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    .metric strong { display:block; font-size:1.8rem; } .metric span { color:var(--muted); font-size:.9rem; } button { border:0; border-radius:6px; background:var(--accent); color:#142000; padding:10px 16px; font:inherit; font-weight:700; cursor:pointer; } button:hover { filter:brightness(.95); }
+    table { width:100%; border-collapse:collapse; background:white; } th,td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); } th { font-size:.85rem; color:var(--muted); } code { font-family:ui-monospace,SFMono-Regular,monospace; } a { color:#356400; }
+    .note { color:var(--muted); font-size:.9rem; } footer { margin-top:42px; color:var(--muted); font-size:.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <span class="tag">C++17 / CMake / concurrency</span>
+  <h1>GPU Work Queue Lab</h1>
+  <p class="lede">A native C++ scheduler that models host-side GPU work submission with priority dispatch, condition-variable coordination, and an aggregate memory budget.</p>
+  <div class="panel">
+    <button id="run">Run browser simulation</button>
+    <p class="note">This page is an educational JavaScript simulation. The real implementation is the tested C++17 program in the repository.</p>
+    <div class="grid">
+      <div class="metric"><strong id="submitted">0</strong><span>submitted</span></div>
+      <div class="metric"><strong id="completed">0</strong><span>completed</span></div>
+      <div class="metric"><strong id="rejected">0</strong><span>rejected by budget</span></div>
+      <div class="metric"><strong id="peak">0</strong><span>peak bytes</span></div>
+    </div>
+    <table><thead><tr><th>Job</th><th>Priority</th><th>Bytes</th><th>Decision</th></tr></thead><tbody id="jobs"></tbody></table>
+  </div>
+  <h2>What the native project demonstrates</h2>
+  <ul>
+    <li>Priority scheduling with FIFO ordering inside a priority level.</li>
+    <li>Condition-variable wakeups for workers and idle detection without polling.</li>
+    <li>Aggregate in-flight memory accounting and oversized-job rejection.</li>
+    <li>CMake/CTest coverage for concurrent execution and memory invariants.</li>
+  </ul>
+  <p><a href="https://github.com/aditya-kurup/gpu-work-queue-lab">View source on GitHub</a></p>
+  <footer>Native build: <code>cmake -S . -B build && cmake --build build && ctest --test-dir build</code></footer>
+</main>
+<script>
+const jobs = [
+  {id:1, priority:1, bytes:55}, {id:2, priority:3, bytes:35}, {id:3, priority:2, bytes:50},
+  {id:4, priority:3, bytes:80}, {id:5, priority:0, bytes:20}, {id:6, priority:2, bytes:45}
+];
+document.getElementById('run').onclick = () => {
+  const budget = 100, accepted = [], rows = document.getElementById('jobs'); rows.innerHTML = '';
+  let used = 0, peak = 0, rejected = 0;
+  [...jobs].sort((a,b) => b.priority-a.priority || a.id-b.id).forEach(job => {
+    const ok = job.bytes <= budget && used + job.bytes <= budget;
+    if (ok) { used += job.bytes; peak = Math.max(peak, used); accepted.push(job); } else rejected++;
+    const row = document.createElement('tr'); row.innerHTML = `<td>#${job.id}</td><td>${job.priority}</td><td>${job.bytes}</td><td>${ok ? 'admitted' : 'rejected'}</td>`; rows.append(row);
+  });
+  document.getElementById('submitted').textContent = jobs.length; document.getElementById('completed').textContent = accepted.length;
+  document.getElementById('rejected').textContent = rejected; document.getElementById('peak').textContent = peak;
+};
+</script>
+</body>
+</html>
